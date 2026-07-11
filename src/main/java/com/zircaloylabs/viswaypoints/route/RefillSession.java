@@ -73,11 +73,10 @@ public class RefillSession {
 
         // Otherwise: done as soon as nothing we originally needed is still missing.
         for (Map.Entry<Aspect, Integer> stillMissing : current.entrySet()) {
-            if (
-                targetDeficit.containsKey(
-                    stillMissing.getKey()
-                        .getTag())
-            ) {
+            final String tag = stillMissing.getKey()
+                .getTag();
+
+            if (targetDeficit.containsKey(tag)) {
                 return false;
             }
         }
