@@ -1,0 +1,9 @@
+[{
+  "modid": "viswaypoints",
+  "name": "Vis Waypoints",
+  "description": "Routes you to the nearest Thaumcraft nodes that can refill your wand, and clears the waypoints once it is full. Client-side only.",
+  "version": "${version}",
+  "mcversion": "${mcversion}",
+  "authorList": ["Zircaloy Labs"],
+  "dependencies": ["Thaumcraft"]
+}]

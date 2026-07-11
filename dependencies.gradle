@@ -1,0 +1,10 @@
+dependencies {
+    // Thaumcraft: wand (ItemWandCasting) + node (INode/TileNode) APIs
+    api("thaumcraft:Thaumcraft:1.7.10-4.2.3.5:dev")
+
+    // TCNodeTracker: the scanned-node database (TCNodeTracker.nodelist)
+    compileOnly("com.github.GTNewHorizons:TCNodeTracker:1.4.5:dev") { transitive = false }
+
+    // JourneyMap: waypoint creation/removal (WaypointStore + Waypoint)
+    compileOnly(rfg.deobf('maven.modrinth:journeymap:5.2.18'))
+}
