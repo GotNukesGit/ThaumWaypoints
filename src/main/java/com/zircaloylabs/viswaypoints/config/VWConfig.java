@@ -31,6 +31,30 @@ public final class VWConfig {
      */
     public static int reservePerNode = 1;
 
+    /** Skip Hungry nodes: they eat blocks and drag you in, which is no place to send someone blindly. */
+    public static boolean avoidHungryNodes = true;
+
+    /** Skip Tainted nodes. */
+    public static boolean avoidTaintedNodes = true;
+
+    /**
+     * How much travel a single extra stop is "worth", in blocks.
+     *
+     * The planner minimises (total distance walked + this x number of stops). Raising it makes the
+     * planner prefer fewer, richer nodes even if they're further out; lowering it makes it happier to
+     * chain several close-together nodes. 150 means "I'd walk 150 extra blocks to save one stop".
+     */
+    public static int stopPenaltyBlocks = 150;
+
+    /**
+     * How many of the most promising nodes to consider when searching for the best combination.
+     *
+     * The planner evaluates every combination of nodes up to maxWaypoints in size, so this bounds the
+     * work. 16 gives a few thousand combinations, which is nothing, and is far more than enough to
+     * find a good cluster.
+     */
+    public static int candidatePoolSize = 16;
+
     /** End the run once the aspects it set out to refill are full, without waiting for a full wand. */
     public static boolean clearWhenTargetAspectsFull = true;
 

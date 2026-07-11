@@ -1,6 +1,8 @@
 package com.zircaloylabs.viswaypoints.route;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,29 +13,34 @@ import com.zircaloylabs.viswaypoints.node.KnownNode;
 import thaumcraft.api.aspects.Aspect;
 
 /**
- * Plans a refill run.
+ * Plans a refill run: which nodes to visit, and in what order.
  *
- * The important thing to understand -- and the thing that makes a naive plan wrong -- is that
- * Thaumcraft does not let you drain a chosen aspect from a node. TileNode picks a *random* aspect
- * from the set the node holds intersected with the set your wand still has room for, and keeps doing
- * that while you hold right-click. So you cannot "take 2 Ordo from this node and 10 from that one":
- * you arrive at a node and absorb everything it can give you across every aspect you are short of,
- * until either the node runs dry or your wand is full for those aspects.
+ * Two things drive the design.
  *
- * That has two consequences this planner is built around:
+ * First, Thaumcraft won't let you drain a chosen aspect. TileNode picks a random aspect from the set
+ * the node holds intersected with the set your wand has room for, and repeats while you hold
+ * right-click. So you don't get to "take 2 Ordo here and 10 there" -- you arrive and absorb
+ * everything the node can give you across every aspect you're short of. Each node's contribution is
+ * therefore min(available, still-needed) for every aspect at once.
  *
- * 1. A node's contribution is min(available, still-needed) for EVERY aspect at once, not a
- * per-aspect allocation we get to choose. So the plan must simulate full absorption at each
- * stop and recompute the remaining deficit before considering the next one.
+ * Second -- and this is what a naive planner gets badly wrong -- picking nodes one at a time is
+ * myopic. A greedy "best next node" will happily send you east to one rich node and then drag you
+ * back west for the rest, when two ordinary nodes to the west would have covered everything for a
+ * fraction of the walking. Distance to the *next* node tells you nothing about whether it sits near
+ * the others you'll still need.
  *
- * 2. Because each stop takes as much as it can, the TOTAL collected from a given set of nodes is
- * the same no matter what order you visit them in -- order only changes how far you walk, and
- * how the take is split between stops. That is what lets us separate the two problems: pick a
- * good SET first (coverage), then optimise the ORDER purely as a shortest-path problem, then
- * re-simulate to get honest per-stop numbers.
+ * So this doesn't pick nodes one at a time. It searches over whole *combinations* of nodes, and
+ * scores each complete candidate route by what it actually costs you:
  *
- * The waypoints are numbered so the route is actually followable in JourneyMap, which otherwise just
- * lists them by distance and quietly destroys the plan.
+ * cost = total distance walked + (stopPenaltyBlocks x number of stops)
+ *
+ * The cheapest combination that covers the shortfall wins. That naturally prefers a tight cluster of
+ * two or three nodes over one distant monster, without needing any special "clustering" rule -- the
+ * cluster simply has a shorter tour. The stop penalty is what expresses "a stop costs me something
+ * even if it's close", and it's configurable because that trade-off is a matter of taste.
+ *
+ * Combinations up to maxWaypoints over a pruned pool of the most promising candidates is a few
+ * thousand evaluations at most, which is nothing for a keypress.
  */
 public final class Router {
 
@@ -43,7 +50,7 @@ public final class Router {
 
         public final KnownNode node;
 
-        /** What you can expect to absorb here, given everything you'll have picked up before it. */
+        /** What you can expect to absorb here, given everything picked up before it. */
         public final Map<String, Integer> take = new HashMap<>();
 
         /** 1-based position in the route. */
@@ -70,7 +77,7 @@ public final class Router {
         /** Aspect tags the known nodes can't satisfy, and how much is still missing. */
         public final Map<String, Integer> uncovered = new HashMap<>();
 
-        /** Total path length: player -> stop 1 -> stop 2 -> ... Used only for feedback. */
+        /** Total path length: player -> stop 1 -> stop 2 -> ... */
         public double travelDistance;
 
         public boolean isEmpty() {
@@ -97,91 +104,39 @@ public final class Router {
         if (need.isEmpty()) return route;
 
         final int reserve = VWConfig.reservePerNode;
-        final double maxDistance = VWConfig.maxSearchRadius;
-        final int maxStops = VWConfig.maxWaypoints;
+        final int maxStops = Math.max(1, VWConfig.maxWaypoints);
 
-        final List<KnownNode> pool = new ArrayList<>();
-        for (KnownNode node : candidates) {
-            if (node.distanceTo(px, py, pz) > maxDistance) continue;
-            if (absorbableFrom(node, need, reserve) > 0) pool.add(node);
-        }
+        final List<KnownNode> pool = prune(candidates, need, reserve, px, py, pz);
 
-        // 1. Choose the set. Greedy: repeatedly take the node offering the most useful vis per unit
-        // of travel from where we'd already be, simulating full absorption as we go.
-        final List<KnownNode> chosen = new ArrayList<>();
-        final Map<String, Integer> remaining = new HashMap<>(need);
-
-        double atX = px;
-        double atY = py;
-        double atZ = pz;
-
-        while (!remaining.isEmpty() && chosen.size() < maxStops && !pool.isEmpty()) {
-            KnownNode best = null;
-            double bestScore = 0d;
-
-            for (KnownNode node : pool) {
-                final int useful = absorbableFrom(node, remaining, reserve);
-                if (useful <= 0) continue;
-
-                final double distance = Math.max(1d, node.distanceTo(atX, atY, atZ));
-
-                // Useful vis per unit of travel. The sqrt softens the distance penalty so a node that
-                // covers far more of the deficit isn't rejected just for being somewhat further out.
-                final double score = useful / Math.sqrt(distance);
-
-                if (score > bestScore) {
-                    bestScore = score;
-                    best = node;
-                }
-            }
-
-            if (best == null) break;
-
-            absorb(best, remaining, reserve);
-            chosen.add(best);
-            pool.remove(best);
-
-            atX = best.x + 0.5;
-            atY = best.y + 0.5;
-            atZ = best.z + 0.5;
-        }
-
-        if (chosen.isEmpty()) {
-            route.uncovered.putAll(remaining);
+        if (pool.isEmpty()) {
+            route.uncovered.putAll(need);
             return route;
         }
 
-        // 2. Optimise the order. Coverage is order-independent, so this is purely "walk less":
-        // nearest-neighbour for a starting tour, then 2-opt to iron out the crossings.
-        List<KnownNode> ordered = nearestNeighbourTour(chosen, px, py, pz);
-        ordered = twoOpt(ordered, px, py, pz);
+        // Search every combination up to maxStops, keeping the cheapest that covers the most.
+        final Search best = new Search();
+        final List<KnownNode> working = new ArrayList<>();
 
-        // 3. Re-simulate absorption in the real visit order, and drop any stop that ends up
-        // contributing nothing (the greedy set can include nodes made redundant by a better order).
-        List<Stop> stops = simulate(ordered, need, reserve);
+        for (int size = 1; size <= Math.min(maxStops, pool.size()); size++) {
+            combine(pool, 0, size, working, need, reserve, px, py, pz, best);
 
-        boolean pruned = true;
-        while (pruned && !stops.isEmpty()) {
-            pruned = false;
-
-            for (int i = 0; i < stops.size(); i++) {
-                if (
-                    stops.get(i)
-                        .totalTake() > 0
-                ) continue;
-
-                final List<KnownNode> trimmed = new ArrayList<>();
-                for (int j = 0; j < stops.size(); j++) {
-                    if (j != i) trimmed.add(stops.get(j).node);
-                }
-
-                stops = simulate(trimmed, need, reserve);
-                pruned = true;
-                break;
-            }
+            // Once we can fully cover the shortfall with N stops, adding more can only cost more --
+            // every extra stop adds both travel and the stop penalty. So stop looking.
+            if (best.fullyCovers) break;
         }
 
-        // 4. Number them so the route can actually be followed on the map.
+        if (best.nodes == null) {
+            route.uncovered.putAll(need);
+            return route;
+        }
+
+        // Order the winning set for the shortest walk, then work out what each stop actually gives.
+        List<KnownNode> ordered = nearestNeighbourTour(best.nodes, px, py, pz);
+        ordered = twoOpt(ordered, px, py, pz);
+
+        List<Stop> stops = simulate(ordered, need, reserve);
+        stops = pruneRedundant(stops, need, reserve);
+
         for (int i = 0; i < stops.size(); i++) {
             stops.get(i).index = i + 1;
             stops.get(i).total = stops.size();
@@ -189,24 +144,134 @@ public final class Router {
 
         route.stops.addAll(stops);
         route.travelDistance = pathLength(nodesOf(stops), px, py, pz);
-
-        final Map<String, Integer> left = new HashMap<>(need);
-        for (Stop stop : stops) {
-            for (Map.Entry<String, Integer> taken : stop.take.entrySet()) {
-                final Integer outstanding = left.get(taken.getKey());
-                if (outstanding == null) continue;
-
-                final int after = outstanding - taken.getValue();
-                if (after > 0) left.put(taken.getKey(), after);
-                else left.remove(taken.getKey());
-            }
-        }
-        route.uncovered.putAll(left);
+        route.uncovered.putAll(outstandingAfter(stops, need));
 
         return route;
     }
 
-    /** Walks the node list in order, taking everything each node can give against the running deficit. */
+    /** The best combination found so far. */
+    private static class Search {
+
+        List<KnownNode> nodes;
+        int coverage = -1;
+        double cost = Double.MAX_VALUE;
+        boolean fullyCovers = false;
+    }
+
+    /**
+     * Walks every combination of the given size, scoring each as a complete route.
+     *
+     * Better coverage always wins; among equally-covering sets, the cheaper route wins. That ordering
+     * matters: a cheap route that leaves you short isn't a bargain.
+     */
+    private static void combine(List<KnownNode> pool, int start, int remaining, List<KnownNode> working,
+        Map<String, Integer> need, int reserve, double px, double py, double pz, Search best) {
+
+        if (remaining == 0) {
+            final int coverage = coverageOf(working, need, reserve);
+            if (coverage <= 0) return;
+
+            final double cost = pathLength(nearestNeighbourTour(working, px, py, pz), px, py, pz)
+                + (double) VWConfig.stopPenaltyBlocks * working.size();
+
+            final boolean better = coverage > best.coverage || (coverage == best.coverage && cost < best.cost);
+
+            if (better) {
+                best.nodes = new ArrayList<>(working);
+                best.coverage = coverage;
+                best.cost = cost;
+                best.fullyCovers = coverage >= totalNeeded(need);
+            }
+
+            return;
+        }
+
+        for (int i = start; i <= pool.size() - remaining; i++) {
+            working.add(pool.get(i));
+            combine(pool, i + 1, remaining - 1, working, need, reserve, px, py, pz, best);
+            working.remove(working.size() - 1);
+        }
+    }
+
+    /**
+     * Narrows the field to the most promising nodes, so the combination search stays cheap.
+     *
+     * Ranking uses usefulness against distance, which keeps both the rich-but-far and the
+     * modest-but-close in play -- the combination search is what decides between them.
+     */
+    private static List<KnownNode> prune(List<KnownNode> candidates, Map<String, Integer> need, int reserve, double px,
+        double py, double pz) {
+
+        final List<KnownNode> viable = new ArrayList<>();
+
+        for (KnownNode node : candidates) {
+            if (isForbiddenType(node)) continue;
+            if (node.distanceTo(px, py, pz) > VWConfig.maxSearchRadius) continue;
+            if (usefulVis(node, need, reserve) <= 0) continue;
+
+            viable.add(node);
+        }
+
+        Collections.sort(viable, new Comparator<KnownNode>() {
+
+            @Override
+            public int compare(KnownNode a, KnownNode b) {
+                final double sa = usefulVis(a, need, reserve) / Math.sqrt(Math.max(1d, a.distanceTo(px, py, pz)));
+                final double sb = usefulVis(b, need, reserve) / Math.sqrt(Math.max(1d, b.distanceTo(px, py, pz)));
+                return Double.compare(sb, sa);
+            }
+        });
+
+        final int limit = Math.min(viable.size(), Math.max(4, VWConfig.candidatePoolSize));
+        return new ArrayList<>(viable.subList(0, limit));
+    }
+
+    /** Hungry nodes eat blocks and pull you in; tainted ones spread taint. Neither is a place to send someone. */
+    private static boolean isForbiddenType(KnownNode node) {
+        if (node.type == null) return false;
+
+        if (VWConfig.avoidHungryNodes && "HUNGRY".equalsIgnoreCase(node.type)) return true;
+        if (VWConfig.avoidTaintedNodes && "TAINTED".equalsIgnoreCase(node.type)) return true;
+
+        return false;
+    }
+
+    /** How much of the shortfall a whole set of nodes can cover between them. */
+    private static int coverageOf(List<KnownNode> nodes, Map<String, Integer> need, int reserve) {
+        int covered = 0;
+
+        for (Map.Entry<String, Integer> want : need.entrySet()) {
+            int available = 0;
+
+            for (KnownNode node : nodes) {
+                available += Math.max(0, node.amountOf(want.getKey()) - reserve);
+            }
+
+            covered += Math.min(available, want.getValue());
+        }
+
+        return covered;
+    }
+
+    private static int totalNeeded(Map<String, Integer> need) {
+        int total = 0;
+        for (int amount : need.values()) total += amount;
+        return total;
+    }
+
+    /** How much of what we still need this one node could hand over. */
+    private static int usefulVis(KnownNode node, Map<String, Integer> need, int reserve) {
+        int useful = 0;
+
+        for (Map.Entry<String, Integer> want : need.entrySet()) {
+            final int available = Math.max(0, node.amountOf(want.getKey()) - reserve);
+            useful += Math.min(available, want.getValue());
+        }
+
+        return useful;
+    }
+
+    /** Walks the nodes in order, taking everything each can give against the running shortfall. */
     private static List<Stop> simulate(List<KnownNode> nodes, Map<String, Integer> need, int reserve) {
         final List<Stop> stops = new ArrayList<>();
         final Map<String, Integer> remaining = new HashMap<>(need);
@@ -235,29 +300,49 @@ public final class Router {
         return stops;
     }
 
-    /** How much of what we still need this node could hand over. */
-    private static int absorbableFrom(KnownNode node, Map<String, Integer> need, int reserve) {
-        int total = 0;
+    /** Drops any stop that, in the final order, turns out to contribute nothing. */
+    private static List<Stop> pruneRedundant(List<Stop> stops, Map<String, Integer> need, int reserve) {
+        List<Stop> current = stops;
+        boolean pruned = true;
 
-        for (Map.Entry<String, Integer> outstanding : need.entrySet()) {
-            final int available = Math.max(0, node.amountOf(outstanding.getKey()) - reserve);
-            total += Math.min(available, outstanding.getValue());
+        while (pruned && !current.isEmpty()) {
+            pruned = false;
+
+            for (int i = 0; i < current.size(); i++) {
+                if (
+                    current.get(i)
+                        .totalTake() > 0
+                ) continue;
+
+                final List<KnownNode> trimmed = new ArrayList<>();
+                for (int j = 0; j < current.size(); j++) {
+                    if (j != i) trimmed.add(current.get(j).node);
+                }
+
+                current = simulate(trimmed, need, reserve);
+                pruned = true;
+                break;
+            }
         }
 
-        return total;
+        return current;
     }
 
-    /** Applies this node's full contribution to the running deficit. */
-    private static void absorb(KnownNode node, Map<String, Integer> need, int reserve) {
-        for (Map.Entry<String, Integer> outstanding : new HashMap<>(need).entrySet()) {
-            final String tag = outstanding.getKey();
-            final int available = Math.max(0, node.amountOf(tag) - reserve);
-            if (available <= 0) continue;
+    private static Map<String, Integer> outstandingAfter(List<Stop> stops, Map<String, Integer> need) {
+        final Map<String, Integer> left = new HashMap<>(need);
 
-            final int after = outstanding.getValue() - Math.min(available, outstanding.getValue());
-            if (after > 0) need.put(tag, after);
-            else need.remove(tag);
+        for (Stop stop : stops) {
+            for (Map.Entry<String, Integer> taken : stop.take.entrySet()) {
+                final Integer outstanding = left.get(taken.getKey());
+                if (outstanding == null) continue;
+
+                final int after = outstanding - taken.getValue();
+                if (after > 0) left.put(taken.getKey(), after);
+                else left.remove(taken.getKey());
+            }
         }
+
+        return left;
     }
 
     private static List<KnownNode> nearestNeighbourTour(List<KnownNode> nodes, double px, double py, double pz) {
@@ -291,10 +376,7 @@ public final class Router {
         return tour;
     }
 
-    /**
-     * 2-opt: repeatedly reverse a segment of the tour if doing so shortens the total path. Cheap, and
-     * it removes the obvious "walk past it, come back for it" crossings that nearest-neighbour leaves.
-     */
+    /** Reverses tour segments wherever that shortens the path: kills the "walk past it, come back" crossings. */
     private static List<KnownNode> twoOpt(List<KnownNode> tour, double px, double py, double pz) {
         if (tour.size() < 3) return tour;
 
@@ -311,7 +393,6 @@ public final class Router {
                 for (int k = i + 1; k < best.size(); k++) {
                     final List<KnownNode> candidate = new ArrayList<>(best);
 
-                    // Reverse the segment [i..k].
                     for (int a = i, b = k; a < b; a++, b--) {
                         final KnownNode swap = candidate.get(a);
                         candidate.set(a, candidate.get(b));
