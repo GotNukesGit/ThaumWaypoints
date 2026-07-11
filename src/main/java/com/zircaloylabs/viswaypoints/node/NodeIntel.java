@@ -204,6 +204,56 @@ public final class NodeIntel {
         }
     }
 
+    /**
+     * Reads a node's exact contents straight off its tile entity, or returns null if the chunk isn't
+     * loaded or there's no node there any more.
+     *
+     * This is what makes arriving at a stop meaningful: standing next to the node means its chunk is
+     * loaded, so we can stop estimating and see exactly what's left -- both to decide whether you're
+     * done draining it, and to re-plan the rest of the route from the truth rather than a projection.
+     */
+    public static KnownNode readLive(int x, int y, int z) {
+        final Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || mc.theWorld == null) return null;
+
+        final World world = mc.theWorld;
+        if (!world.blockExists(x, y, z)) return null;
+
+        final TileEntity tile = world.getTileEntity(x, y, z);
+        if (!(tile instanceof INode)) return null;
+
+        final INode live = (INode) tile;
+
+        final KnownNode node = new KnownNode(
+            world.provider.dimensionId,
+            x,
+            y,
+            z,
+            live.getNodeType() == null ? "NORMAL"
+                : live.getNodeType()
+                    .name(),
+            modifierNameOf(live));
+
+        final Aspect[] present = live.getAspects() == null ? new Aspect[0]
+            : live.getAspects()
+                .getAspects();
+
+        for (Aspect aspect : present) {
+            if (aspect == null) continue;
+            node.aspects.put(
+                aspect.getTag(),
+                live.getAspects()
+                    .getAmount(aspect));
+            node.base.put(aspect.getTag(), live.getNodeVisBase(aspect));
+        }
+
+        node.freshness = KnownNode.Freshness.LIVE;
+        node.observedAtMillis = System.currentTimeMillis();
+
+        NodeMemory.remember(node);
+        return node;
+    }
+
     /** Reads the live modifier off a tile entity, for callers that have one in hand. */
     public static String modifierNameOf(INode live) {
         final NodeModifier modifier = live.getNodeModifier();

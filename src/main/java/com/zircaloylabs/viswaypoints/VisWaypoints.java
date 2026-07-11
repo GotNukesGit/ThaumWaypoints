@@ -10,6 +10,8 @@ import com.zircaloylabs.viswaypoints.config.gui.ConfigChangeListener;
 import com.zircaloylabs.viswaypoints.keys.ClientEvents;
 import com.zircaloylabs.viswaypoints.keys.KeyBindings;
 import com.zircaloylabs.viswaypoints.node.NodeMemory;
+import com.zircaloylabs.viswaypoints.render.TargetBeaconRenderer;
+import com.zircaloylabs.viswaypoints.waypoint.WaypointSuppressor;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
@@ -47,6 +49,11 @@ public class VisWaypoints {
         NodeMemory.init(
             event.getModConfigurationDirectory()
                 .toPath());
+
+        // If a previous session died mid-run, this hands the player back the waypoints we hid.
+        WaypointSuppressor.init(
+            event.getModConfigurationDirectory()
+                .toPath());
     }
 
     @SideOnly(Side.CLIENT)
@@ -64,5 +71,7 @@ public class VisWaypoints {
         FMLCommonHandler.instance()
             .bus()
             .register(new ConfigChangeListener());
+
+        MinecraftForge.EVENT_BUS.register(new TargetBeaconRenderer());
     }
 }

@@ -69,6 +69,68 @@ public final class WaypointService {
     }
 
     /**
+     * Creates a single waypoint for one stop -- the progressive mode, where only the node you're
+     * heading to next is on the map.
+     *
+     * @param stopNumber 1-based count of stops made so far on this run
+     * @param moreAfter  how many further stops the current plan expects after this one
+     */
+    public static boolean createSingle(Router.Stop stop, int stopNumber, int moreAfter) {
+        if (!isJourneyMapAvailable()) return false;
+
+        final KnownNode node = stop.node;
+        final StringBuilder label = new StringBuilder(PREFIX).append(" #")
+            .append(stopNumber)
+            .append(": ");
+
+        boolean first = true;
+        for (Map.Entry<String, Integer> take : stop.take.entrySet()) {
+            if (!first) label.append(", ");
+            label.append(capitalise(take.getKey()))
+                .append(' ')
+                .append(take.getValue());
+            first = false;
+        }
+
+        if (moreAfter > 0) {
+            label.append(" (+")
+                .append(moreAfter)
+                .append(" more)");
+        }
+
+        switch (node.freshness) {
+            case LIVE:
+                label.append(" (live)");
+                break;
+            case STALE_NO_REGEN:
+                label.append(" (fading)");
+                break;
+            case ESTIMATED:
+            default:
+                label.append(" (~est)");
+                break;
+        }
+
+        try {
+            final Waypoint waypoint = new Waypoint(
+                label.toString(),
+                node.x,
+                node.y,
+                node.z,
+                new Color(VWConfig.waypointColor),
+                Waypoint.Type.Normal,
+                node.dim);
+
+            WaypointStore.instance()
+                .save(waypoint);
+            return true;
+        } catch (Exception e) {
+            VisWaypoints.LOG.warn("Failed to create waypoint at " + node.key(), e);
+            return false;
+        }
+    }
+
+    /**
      * Removes every waypoint this mod created. Returns how many were removed.
      */
     public static int clearAll() {
@@ -120,11 +182,24 @@ public final class WaypointService {
     }
 
     /**
-     * Builds a label like "❈ Vis: Aer 12, Ignis 5 (~est)" so the map tells you why you're going there
-     * and how much to trust the numbers.
+     * Builds a label like "\u2748 Vis 2/4: Aer 12, Ordo 2 (~est)".
+     *
+     * The leading "2/4" is the point of this: JourneyMap lists waypoints by distance, not by the
+     * order we planned, so without a visible sequence the player walks the route out of order. Since
+     * each node hands over everything it can, visiting out of order shifts which stop gives what --
+     * the numbers only line up if you follow the sequence.
      */
     private static String labelFor(Router.Stop stop) {
-        final StringBuilder label = new StringBuilder(PREFIX).append(": ");
+        final StringBuilder label = new StringBuilder(PREFIX);
+
+        if (stop.total > 1) {
+            label.append(' ')
+                .append(stop.index)
+                .append('/')
+                .append(stop.total);
+        }
+
+        label.append(": ");
 
         boolean first = true;
         for (Map.Entry<String, Integer> take : stop.take.entrySet()) {

@@ -34,11 +34,34 @@ public final class VWConfig {
     /** End the run once the aspects it set out to refill are full, without waiting for a full wand. */
     public static boolean clearWhenTargetAspectsFull = true;
 
+    /**
+     * Show one waypoint at a time: when you arrive and drain a node, its waypoint is deleted and the
+     * next one appears. This keeps the route unambiguous (JourneyMap sorts waypoints by distance, so
+     * a whole route dumped on the map gets walked out of order), and lets the remaining route be
+     * re-planned at each stop from the node's exact live contents.
+     */
+    public static boolean progressiveWaypoints = true;
+
+    /** How close (blocks) you must get to a node before it counts as "arrived". */
+    public static int arrivalRadius = 24;
+
     /** Announce route creation / completion in chat. */
     public static boolean chatFeedback = true;
 
     /** RGB color of the created waypoints. */
-    public static int waypointColor = 0x9B6DD7;
+    public static int waypointColor = 0xB44DFF;
+
+    /** Draw a pulsing beam of light at the node you're being routed to, visible through terrain. */
+    public static boolean showBeacon = true;
+
+    /** RGB color of that beam. */
+    public static int beaconColor = 0xB44DFF;
+
+    /**
+     * Hide all your other JourneyMap waypoints while a run is active, so the node is the only thing on
+     * the map. They are restored when the run ends -- including after a crash, on the next startup.
+     */
+    public static boolean suppressOtherWaypoints = true;
 
     private static Configuration configuration;
 
@@ -97,6 +120,25 @@ public final class VWConfig {
                     + "Waypoints are always deleted once the wand is completely full regardless.")
             .getBoolean();
 
+        progressiveWaypoints = configuration
+            .get(
+                CATEGORY_GENERAL,
+                "progressiveWaypoints",
+                true,
+                "Show only the next node's waypoint, instead of the whole route at once.\n"
+                    + "When you arrive and drain that node, its waypoint is removed and the next appears,\n"
+                    + "with the rest of the route re-planned from what the node actually gave you.\n"
+                    + "Turn off to drop waypoints for every stop up front.")
+            .getBoolean();
+
+        arrivalRadius = configuration.getInt(
+            "arrivalRadius",
+            CATEGORY_GENERAL,
+            24,
+            4,
+            128,
+            "How close (in blocks) you need to get to a node for it to count as reached.");
+
         chatFeedback = configuration
             .get(CATEGORY_DISPLAY, "chatFeedback", true, "Print route and completion messages to chat.")
             .getBoolean();
@@ -104,10 +146,37 @@ public final class VWConfig {
         waypointColor = configuration.getInt(
             "waypointColor",
             CATEGORY_DISPLAY,
-            0x9B6DD7,
+            0xB44DFF,
             0x000000,
             0xFFFFFF,
             "Color of the waypoints this mod creates, as a decimal RGB value.");
+
+        showBeacon = configuration
+            .get(
+                CATEGORY_DISPLAY,
+                "showBeacon",
+                true,
+                "Draw a pulsing beam of light at the node you're heading to.\n"
+                    + "It renders through terrain, so you can see it from over a hill.")
+            .getBoolean();
+
+        beaconColor = configuration.getInt(
+            "beaconColor",
+            CATEGORY_DISPLAY,
+            0xB44DFF,
+            0x000000,
+            0xFFFFFF,
+            "Color of the beacon beam, as a decimal RGB value.");
+
+        suppressOtherWaypoints = configuration
+            .get(
+                CATEGORY_DISPLAY,
+                "suppressOtherWaypoints",
+                true,
+                "While a run is active, hide all your other JourneyMap waypoints so only the node shows.\n"
+                    + "They are restored when the run finishes, when you clear it, on disconnect, and -- if\n"
+                    + "the game crashed mid-run -- the next time the mod loads.")
+            .getBoolean();
 
         if (configuration.hasChanged()) configuration.save();
     }
