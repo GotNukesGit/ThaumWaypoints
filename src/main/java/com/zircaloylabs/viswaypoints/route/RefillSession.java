@@ -16,10 +16,10 @@ import thaumcraft.api.aspects.Aspect;
  * The session records which aspects the wand was short of when the run started. It then decides, each
  * time it's polled, whether the run is finished -- which happens under either of two conditions:
  *
- *  - the wand is completely full (every primal at capacity), or
- *  - every aspect the run was created to top up has been topped up, even if some *other* aspect has
- *    since drained (you spent Ordo casting on the way home; that shouldn't resurrect the waypoints
- *    you already finished with).
+ * - the wand is completely full (every primal at capacity), or
+ * - every aspect the run was created to top up has been topped up, even if some *other* aspect has
+ * since drained (you spent Ordo casting on the way home; that shouldn't resurrect the waypoints
+ * you already finished with).
  *
  * Both conditions are configurable, since some players will want the waypoints to persist until the
  * wand is genuinely full.
@@ -34,7 +34,10 @@ public class RefillSession {
 
     public RefillSession(Map<Aspect, Integer> deficit, int waypointsCreated) {
         for (Map.Entry<Aspect, Integer> e : deficit.entrySet()) {
-            targetDeficit.put(e.getKey().getTag(), e.getValue());
+            targetDeficit.put(
+                e.getKey()
+                    .getTag(),
+                e.getValue());
         }
         this.waypointsCreated = waypointsCreated;
     }
@@ -70,7 +73,11 @@ public class RefillSession {
 
         // Otherwise: done as soon as nothing we originally needed is still missing.
         for (Map.Entry<Aspect, Integer> stillMissing : current.entrySet()) {
-            if (targetDeficit.containsKey(stillMissing.getKey().getTag())) {
+            if (
+                targetDeficit.containsKey(
+                    stillMissing.getKey()
+                        .getTag())
+            ) {
                 return false;
             }
         }

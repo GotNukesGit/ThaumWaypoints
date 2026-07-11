@@ -60,53 +60,54 @@ public final class VWConfig {
         if (configuration == null) return;
 
         maxSearchRadius = configuration.getInt(
-                "maxSearchRadius",
-                CATEGORY_GENERAL,
-                2000,
-                64,
-                30000,
-                "How far away (in blocks) a node can be and still get a waypoint.");
+            "maxSearchRadius",
+            CATEGORY_GENERAL,
+            2000,
+            64,
+            30000,
+            "How far away (in blocks) a node can be and still get a waypoint.");
 
         maxWaypoints = configuration.getInt(
-                "maxWaypoints",
-                CATEGORY_GENERAL,
-                5,
-                1,
-                20,
-                "Maximum number of waypoints a single refill run will create.");
+            "maxWaypoints",
+            CATEGORY_GENERAL,
+            5,
+            1,
+            20,
+            "Maximum number of waypoints a single refill run will create.");
 
         reservePerNode = configuration.getInt(
-                "reservePerNode",
-                CATEGORY_GENERAL,
-                1,
-                0,
-                50,
-                "How much vis the router assumes it leaves behind in a node when planning a run.\n"
-                        + "This is a planning figure only: it does not stop you draining a node.\n"
-                        + "Thaumcraft's own Node Preservation research already prevents a wand from\n"
-                        + "taking an aspect's last point, so this defaults to 1. Set to 0 to have the\n"
-                        + "router plan on emptying nodes completely.");
+            "reservePerNode",
+            CATEGORY_GENERAL,
+            1,
+            0,
+            50,
+            "How much vis the router assumes it leaves behind in a node when planning a run.\n"
+                + "This is a planning figure only: it does not stop you draining a node.\n"
+                + "Thaumcraft's own Node Preservation research already prevents a wand from\n"
+                + "taking an aspect's last point, so this defaults to 1. Set to 0 to have the\n"
+                + "router plan on emptying nodes completely.");
 
-        clearWhenTargetAspectsFull = configuration.get(
+        clearWhenTargetAspectsFull = configuration
+            .get(
                 CATEGORY_GENERAL,
                 "clearWhenTargetAspectsFull",
                 true,
                 "Delete the run's waypoints as soon as the aspects it was created to refill are full,\n"
-                        + "instead of waiting for every primal on the wand to be at capacity.\n"
-                        + "Waypoints are always deleted once the wand is completely full regardless.")
-                .getBoolean();
+                    + "instead of waiting for every primal on the wand to be at capacity.\n"
+                    + "Waypoints are always deleted once the wand is completely full regardless.")
+            .getBoolean();
 
         chatFeedback = configuration
-                .get(CATEGORY_DISPLAY, "chatFeedback", true, "Print route and completion messages to chat.")
-                .getBoolean();
+            .get(CATEGORY_DISPLAY, "chatFeedback", true, "Print route and completion messages to chat.")
+            .getBoolean();
 
         waypointColor = configuration.getInt(
-                "waypointColor",
-                CATEGORY_DISPLAY,
-                0x9B6DD7,
-                0x000000,
-                0xFFFFFF,
-                "Color of the waypoints this mod creates, as a decimal RGB value.");
+            "waypointColor",
+            CATEGORY_DISPLAY,
+            0x9B6DD7,
+            0x000000,
+            0xFFFFFF,
+            "Color of the waypoints this mod creates, as a decimal RGB value.");
 
         if (configuration.hasChanged()) configuration.save();
     }

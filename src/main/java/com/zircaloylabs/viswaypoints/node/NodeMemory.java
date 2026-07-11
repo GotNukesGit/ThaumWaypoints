@@ -38,7 +38,8 @@ public final class NodeMemory {
         public long observedAtMillis;
     }
 
-    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting()
+        .create();
     private static final Type TYPE = new TypeToken<HashMap<String, Entry>>() {}.getType();
 
     private static final Map<String, Entry> MEMORY = new HashMap<>();

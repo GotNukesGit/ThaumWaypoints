@@ -66,14 +66,17 @@ public final class Router {
      * @param px,py,pz   the player's position
      */
     public static Route plan(Map<Aspect, Integer> deficit, List<KnownNode> candidates, double px, double py,
-            double pz) {
+        double pz) {
 
         final Route route = new Route();
 
         // Work in aspect tags; that's how node contents are keyed.
         final Map<String, Integer> remaining = new HashMap<>();
         for (Map.Entry<Aspect, Integer> e : deficit.entrySet()) {
-            remaining.put(e.getKey().getTag(), e.getValue());
+            remaining.put(
+                e.getKey()
+                    .getTag(),
+                e.getValue());
         }
         if (remaining.isEmpty()) return route;
 

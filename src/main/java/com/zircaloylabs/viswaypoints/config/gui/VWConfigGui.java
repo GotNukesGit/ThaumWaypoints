@@ -26,10 +26,14 @@ public class VWConfigGui extends GuiConfig {
     private static List<IConfigElement> elements() {
         final List<IConfigElement> list = new ArrayList<>();
 
-        list.addAll(new ConfigElement(VWConfig.configuration().getCategory(VWConfig.CATEGORY_GENERAL))
-                .getChildElements());
-        list.addAll(new ConfigElement(VWConfig.configuration().getCategory(VWConfig.CATEGORY_DISPLAY))
-                .getChildElements());
+        list.addAll(
+            new ConfigElement(
+                VWConfig.configuration()
+                    .getCategory(VWConfig.CATEGORY_GENERAL)).getChildElements());
+        list.addAll(
+            new ConfigElement(
+                VWConfig.configuration()
+                    .getCategory(VWConfig.CATEGORY_DISPLAY)).getChildElements());
 
         return list;
     }

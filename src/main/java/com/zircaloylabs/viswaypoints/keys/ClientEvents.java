@@ -71,8 +71,12 @@ public class ClientEvents {
             session = null;
 
             if (VWConfig.chatFeedback) {
-                say(EnumChatFormatting.GREEN + "Wand topped up \u2014 cleared " + removed + " vis waypoint"
-                        + (removed == 1 ? "" : "s") + ".");
+                say(
+                    EnumChatFormatting.GREEN + "Wand topped up \u2014 cleared "
+                        + removed
+                        + " vis waypoint"
+                        + (removed == 1 ? "" : "s")
+                        + ".");
             }
         }
     }
@@ -110,15 +114,15 @@ public class ClientEvents {
 
         final List<KnownNode> known = NodeIntel.knownNodesInCurrentDimension();
         if (known.isEmpty()) {
-            say(EnumChatFormatting.YELLOW
-                    + "No scanned nodes in this dimension. Scan some with a Thaumometer first.");
+            say(EnumChatFormatting.YELLOW + "No scanned nodes in this dimension. Scan some with a Thaumometer first.");
             return;
         }
 
         final Router.Route route = Router.plan(deficit, known, px, py, pz);
 
         if (route.isEmpty()) {
-            say(EnumChatFormatting.YELLOW + "None of your scanned nodes within "
+            say(
+                EnumChatFormatting.YELLOW + "None of your scanned nodes within "
                     + VWConfig.maxSearchRadius
                     + " blocks have the vis you need.");
             return;
@@ -128,11 +132,19 @@ public class ClientEvents {
         session = new RefillSession(deficit, created);
 
         if (VWConfig.chatFeedback) {
-            say(EnumChatFormatting.LIGHT_PURPLE + "Vis run: " + created + " waypoint" + (created == 1 ? "" : "s")
-                    + " to refill " + describe(deficit) + ".");
+            say(
+                EnumChatFormatting.LIGHT_PURPLE + "Vis run: "
+                    + created
+                    + " waypoint"
+                    + (created == 1 ? "" : "s")
+                    + " to refill "
+                    + describe(deficit)
+                    + ".");
 
             if (!route.fullyCovers()) {
-                say(EnumChatFormatting.GRAY + "  Not fully covered by known nodes: " + describeTags(route.uncovered)
+                say(
+                    EnumChatFormatting.GRAY + "  Not fully covered by known nodes: "
+                        + describeTags(route.uncovered)
                         + ". Scan more nodes, or wait for these to regenerate.");
             }
         }
@@ -157,7 +169,11 @@ public class ClientEvents {
         boolean first = true;
         for (Map.Entry<Aspect, Integer> e : deficit.entrySet()) {
             if (!first) sb.append(", ");
-            sb.append(e.getKey().getName()).append(' ').append(e.getValue());
+            sb.append(
+                e.getKey()
+                    .getName())
+                .append(' ')
+                .append(e.getValue());
             first = false;
         }
 
@@ -170,7 +186,9 @@ public class ClientEvents {
         boolean first = true;
         for (Map.Entry<String, Integer> e : byTag.entrySet()) {
             if (!first) sb.append(", ");
-            sb.append(e.getKey()).append(' ').append(e.getValue());
+            sb.append(e.getKey())
+                .append(' ')
+                .append(e.getValue());
             first = false;
         }
 

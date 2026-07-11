@@ -22,15 +22,15 @@ import thaumcraft.api.nodes.NodeModifier;
  *
  * There are two sources, and they are used in strict priority order:
  *
- *  1. The live TileNode, when the node's chunk happens to be loaded. This is exact -- current vis
- *     and each aspect's base (maximum) come straight off the tile entity. Reading it also refreshes
- *     our memory of that node, which is how "how much I left it at" gets captured: after you drain a
- *     node you are standing next to it, so we record what you left behind.
+ * 1. The live TileNode, when the node's chunk happens to be loaded. This is exact -- current vis
+ * and each aspect's base (maximum) come straight off the tile entity. Reading it also refreshes
+ * our memory of that node, which is how "how much I left it at" gets captured: after you drain a
+ * node you are standing next to it, so we record what you left behind.
  *
- *  2. TCNodeTracker's scanned-node database (TCNodeTracker.nodelist), which stores the aspects, node
- *     type, modifier and a scan timestamp for every node you've hit with a Thaumometer. For nodes
- *     that are far away / unloaded, we take the last known amounts and project them forward with
- *     RegenModel to estimate what's there now.
+ * 2. TCNodeTracker's scanned-node database (TCNodeTracker.nodelist), which stores the aspects, node
+ * type, modifier and a scan timestamp for every node you've hit with a Thaumometer. For nodes
+ * that are far away / unloaded, we take the last known amounts and project them forward with
+ * RegenModel to estimate what's there now.
  *
  * A note on why there is no VisualProspecting source: VisualProspecting tracks ore veins and wells,
  * and has no concept of Thaumcraft aura nodes at all. TCNodeTracker is the only node database in the
@@ -128,7 +128,7 @@ public final class NodeIntel {
      * the deficient aspects as evenly as we can, never exceeding base.
      */
     private static Map<String, Integer> distributeRegen(Map<String, Integer> current, Map<String, Integer> base,
-            int pool) {
+        int pool) {
         final Map<String, Integer> result = new HashMap<>(current);
         if (pool <= 0) return result;
 
@@ -179,10 +179,15 @@ public final class NodeIntel {
         node.aspects.clear();
         node.base.clear();
 
-        final Aspect[] present = live.getAspects() == null ? new Aspect[0] : live.getAspects().getAspects();
+        final Aspect[] present = live.getAspects() == null ? new Aspect[0]
+            : live.getAspects()
+                .getAspects();
         for (Aspect aspect : present) {
             if (aspect == null) continue;
-            node.aspects.put(aspect.getTag(), live.getAspects().getAmount(aspect));
+            node.aspects.put(
+                aspect.getTag(),
+                live.getAspects()
+                    .getAmount(aspect));
             node.base.put(aspect.getTag(), live.getNodeVisBase(aspect));
         }
 

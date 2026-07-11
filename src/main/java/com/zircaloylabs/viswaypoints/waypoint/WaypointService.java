@@ -48,16 +48,17 @@ public final class WaypointService {
             final KnownNode node = stop.node;
 
             final Waypoint waypoint = new Waypoint(
-                    labelFor(stop),
-                    node.x,
-                    node.y,
-                    node.z,
-                    new Color(VWConfig.waypointColor),
-                    Waypoint.Type.Normal,
-                    node.dim);
+                labelFor(stop),
+                node.x,
+                node.y,
+                node.z,
+                new Color(VWConfig.waypointColor),
+                Waypoint.Type.Normal,
+                node.dim);
 
             try {
-                WaypointStore.instance().save(waypoint);
+                WaypointStore.instance()
+                    .save(waypoint);
                 created++;
             } catch (Exception e) {
                 VisWaypoints.LOG.warn("Failed to create waypoint at " + node.key(), e);
@@ -79,7 +80,8 @@ public final class WaypointService {
             // Copy first: removing while iterating the store's own collection is asking for trouble.
             final List<Waypoint> ours = new ArrayList<>();
 
-            for (Waypoint waypoint : WaypointStore.instance().getAll()) {
+            for (Waypoint waypoint : WaypointStore.instance()
+                .getAll()) {
                 if (waypoint == null) continue;
 
                 final String name = waypoint.getName();
@@ -87,7 +89,8 @@ public final class WaypointService {
             }
 
             for (Waypoint waypoint : ours) {
-                WaypointStore.instance().remove(waypoint);
+                WaypointStore.instance()
+                    .remove(waypoint);
                 removed++;
             }
         } catch (Exception e) {
@@ -102,7 +105,8 @@ public final class WaypointService {
         if (!isJourneyMapAvailable()) return false;
 
         try {
-            for (Waypoint waypoint : WaypointStore.instance().getAll()) {
+            for (Waypoint waypoint : WaypointStore.instance()
+                .getAll()) {
                 if (waypoint == null) continue;
 
                 final String name = waypoint.getName();
@@ -125,7 +129,9 @@ public final class WaypointService {
         boolean first = true;
         for (Map.Entry<String, Integer> take : stop.take.entrySet()) {
             if (!first) label.append(", ");
-            label.append(capitalise(take.getKey())).append(' ').append(take.getValue());
+            label.append(capitalise(take.getKey()))
+                .append(' ')
+                .append(take.getValue());
             first = false;
         }
 
@@ -134,7 +140,9 @@ public final class WaypointService {
                 label.append(" (live)");
                 break;
             case STALE_NO_REGEN:
-                label.append(" (fading, ~").append(stop.node.ageMinutes()).append("m old)");
+                label.append(" (fading, ~")
+                    .append(stop.node.ageMinutes())
+                    .append("m old)");
                 break;
             case ESTIMATED:
             default:

@@ -28,12 +28,12 @@ import cpw.mods.fml.relauncher.SideOnly;
  * server that doesn't have it.
  */
 @Mod(
-        modid = VisWaypoints.MODID,
-        name = "Vis Waypoints",
-        version = Tags.VERSION,
-        guiFactory = "com.zircaloylabs.viswaypoints.config.gui.VWGuiFactory",
-        acceptableRemoteVersions = "*",
-        dependencies = "required-after:Thaumcraft;after:tcnodetracker;after:journeymap")
+    modid = VisWaypoints.MODID,
+    name = "Vis Waypoints",
+    version = Tags.VERSION,
+    guiFactory = "com.zircaloylabs.viswaypoints.config.gui.VWGuiFactory",
+    acceptableRemoteVersions = "*",
+    dependencies = "required-after:Thaumcraft;after:tcnodetracker;after:journeymap")
 public class VisWaypoints {
 
     public static final String MODID = "viswaypoints";
@@ -44,7 +44,9 @@ public class VisWaypoints {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         VWConfig.init(event.getSuggestedConfigurationFile());
-        NodeMemory.init(event.getModConfigurationDirectory().toPath());
+        NodeMemory.init(
+            event.getModConfigurationDirectory()
+                .toPath());
     }
 
     @SideOnly(Side.CLIENT)
@@ -53,10 +55,14 @@ public class VisWaypoints {
         KeyBindings.init();
 
         final ClientEvents events = new ClientEvents();
-        FMLCommonHandler.instance().bus().register(events);
+        FMLCommonHandler.instance()
+            .bus()
+            .register(events);
         MinecraftForge.EVENT_BUS.register(events);
 
         // Applies in-game config edits immediately.
-        FMLCommonHandler.instance().bus().register(new ConfigChangeListener());
+        FMLCommonHandler.instance()
+            .bus()
+            .register(new ConfigChangeListener());
     }
 }
