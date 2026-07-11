@@ -2,6 +2,9 @@ dependencies {
     // Thaumcraft: wand (ItemWandCasting) + node (INode/TileNode) APIs
     api("thaumcraft:Thaumcraft:1.7.10-4.2.3.5:dev")
 
+    // Thaumcraft itself requires Baubles at runtime; needed for the CI smoke test to boot.
+    runtimeOnlyNonPublishable("com.github.GTNewHorizons:Baubles-Expanded:2.2.11-GTNH:dev")
+
     // TCNodeTracker: the scanned-node database (TCNodeTracker.nodelist)
     compileOnly("com.github.GTNewHorizons:TCNodeTracker:1.4.5:dev") { transitive = false }
 
